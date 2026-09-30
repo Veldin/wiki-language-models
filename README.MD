@@ -80,8 +80,10 @@ the N-Gram Model stores a mapping from a packed context to up to two predictions
 Each entry in the model is exactly 6 bytes.
 4 bytes context, and two 1 byte predictions.
 
-The file contains entries directly after each other. There is no header. (The file size must be divisible by 6, so the
-number of entries can be calculated directly.)
+The file contains entries directly after each other. There is a 8 bit header. 
+4 bytes 'VLM1' magic and 4 bytes indicating the model type.
+
+The file size minus the header must be divisible by 6, so the number of entries can be calculated directly ((file size - 8) / 6).
 
 The model uses the vocabulary tokens as its input and packs the previous tokens into a single Integer.
 
