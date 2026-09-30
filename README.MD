@@ -80,10 +80,12 @@ the N-Gram Model stores a mapping from a packed context to up to two predictions
 Each entry in the model is exactly 6 bytes.
 4 bytes context, and two 1 byte predictions.
 
-The file contains entries directly after each other. There is a 8 bit header. 
+The file contains entries directly after each other. There is a 8 bit header.
 4 bytes 'VLM1' magic and 4 bytes indicating the model type.
 
-The file size minus the header must be divisible by 6, so the number of entries can be calculated directly ((file size - 8) / 6).
+The file size minus the header must be divisible by 6, so the number of entries can be calculated directly ((file size -
+
+8) / 6).
 
 The model uses the vocabulary tokens as its input and packs the previous tokens into a single Integer.
 
@@ -98,6 +100,34 @@ exist)
 
 To use the model, the previous vocabulary tokens should be passed using the same packing strategy that was used when the
 model was created. The resulting integer is the key used in model's vocab lookup table.
+
+# Generated Language Model - Releases
+
+A release contains a complete set of language models generated from a specific Wikipedia dump.
+
+Each release is tied to the exact Wikipedia project and dump date used to create it. This makes the models reproducible
+and makes it possible to see exactly which source data a model was built from.
+
+A release looks roughly like this:
+
+veldin-language-model-nl-20260901/
+
+- dump-info.yaml
+- dictionary.txt
+- vocabulary.txt
+- ngram.txt
+- veldin-language-model-nl-20260901.zip
+
+The binary model files contain the actual data used by applications:
+
+- Dictionary - the words found in the Wikipedia text, stored as compact 6-bit tokens.
+- Vocabulary - the 255 word sequences, mapped to small vocabulary tokens.
+- N-Gram Model - statistical predictions based on previous vocabulary tokens.
+
+The binary files are intended for use by applications and are optimized for compact storage and fast lookup.
+
+Each model also has a .txt companion file. These are human-readable versions intended for inspecting and debugging the
+generated models rather than for application use.
 
 # Licensing
 
