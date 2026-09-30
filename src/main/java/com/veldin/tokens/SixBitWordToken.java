@@ -1,5 +1,23 @@
 package com.veldin.tokens;
 
+/**
+ * Six-bit token encoding used by the initial language models.
+ *
+ * This is deliberately a "good enough" character set for the first version.
+ * It covers the characters I expect to be useful across the Western European
+ * languages that are most relevant to me, while keeping the number of tokens
+ * small enough to fit comfortably in 6 bits.
+ *
+ * There is a trade-off here between the number of characters we support and
+ * how much meaning each token has. More tokens give better coverage for
+ * individual languages, but leave fewer values available for other purposes.
+ *
+ * For now, I prefer one shared encoding that works reasonably well across
+ * these languages. In the future, I may split this into language-specific
+ * token sets, allowing each language to make better use of its 64 available
+ * values.
+ */
+
 public final class SixBitWordToken implements TokenCodec {
 
     public static final SixBitWordToken instance = new SixBitWordToken();
