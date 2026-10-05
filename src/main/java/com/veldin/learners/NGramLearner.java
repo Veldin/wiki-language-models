@@ -171,8 +171,14 @@ public final class NGramLearner implements CodePointConsumer {
             NGramPackStrategy strategy
     ) {
 
-        Map<Integer, Short> predictions =
-                new HashMap<>();
+        /*
+         * Keep the same ~75% load factor as FinalNGramBuilder.
+         */
+        int capacity = tableSizeFor(counts.size());
+
+        int[] keys = new int[capacity];
+        short[] values = new short[capacity];
+        byte[] used = new byte[capacity];
 
         var iterator = counts.entrySet().iterator();
 
@@ -232,7 +238,10 @@ public final class NGramLearner implements CodePointConsumer {
                         (secondToken << 8)
                                 | firstToken;
 
-                predictions.put(
+                put(
+                        keys,
+                        values,
+                        used,
                         entry.getKey(),
                         (short) packed
                 );
@@ -240,15 +249,78 @@ public final class NGramLearner implements CodePointConsumer {
 
             /*
              * We no longer need this SparseCounts.
-             *
-             * This releases the reference from the counts HashMap,
-             * allowing the SparseCounts and its backing arrays to
-             * become garbage-collectable.
              */
             iterator.remove();
         }
 
-        return new FinalNGramModel(predictions, strategy);
+        return new FinalNGramModel(
+                keys,
+                values,
+                used,
+                strategy
+        );
     }
 
+    private static void put(
+            int[] keys,
+            short[] values,
+            byte[] used,
+            int key,
+            short value
+    ) {
+        int mask = keys.length - 1;
+        int index = mix(key) & mask;
+
+        while (used[index] != 0) {
+
+            if (keys[index] == key) {
+                values[index] = value;
+                return;
+            }
+
+            index = (index + 1) & mask;
+        }
+
+        keys[index] = key;
+        values[index] = value;
+        used[index] = 1;
+    }
+
+    private static int mix(int value) {
+        value ^= value >>> 16;
+        value *= 0x7feb352d;
+        value ^= value >>> 15;
+        value *= 0x846ca68b;
+        value ^= value >>> 16;
+        return value;
+    }
+
+    private static int tableSizeFor(int entries) {
+
+        if (entries < 1) {
+            return 2;
+        }
+
+        /*
+         * Keep load factor <= 75%.
+         */
+        long required =
+                ((long) entries * 4L + 2L) / 3L;
+
+        if (required > (1L << 30)) {
+            throw new IllegalStateException(
+                    "N-gram model is too large: "
+                            + entries
+                            + " entries"
+            );
+        }
+
+        int capacity = 1;
+
+        while (capacity < required) {
+            capacity <<= 1;
+        }
+
+        return capacity;
+    }
 }

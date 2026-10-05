@@ -1,76 +1,19 @@
 package com.veldin.builders;
 
+
 import com.veldin.finalmodels.FinalNGramModel;
 import com.veldin.ngrampackstrategy.NGramPackStrategy;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
 
 public final class FinalNGramBuilder {
 
     private static final int HEADER_SIZE = 8;
+    private static final int ENTRY_SIZE = 6;
 
     private FinalNGramBuilder() {
-    }
-
-    /*
-     * ============================================================
-     * SAVE
-     * ============================================================
-     *
-     * Header:
-     *
-     * 4 bytes = VLM1 magic
-     * 4 bytes = TYPE_NGRAM
-     *
-     * Each entry:
-     *
-     * 4 bytes = context Integer
-     * 2 bytes = predictions Short
-     */
-
-    public static void save(
-            Path file,
-            FinalNGramModel learner
-    ) throws IOException {
-
-        Path parent = file.getParent();
-
-        if (parent != null) {
-            Files.createDirectories(parent);
-        }
-
-        try (DataOutputStream out =
-                     new DataOutputStream(
-                             new BufferedOutputStream(
-                                     Files.newOutputStream(file),
-                                     1024 * 1024))) {
-
-            // Common model file header
-            out.writeInt(
-                    ModelFileFormatStatics.MAGIC
-            );
-
-            out.writeInt(
-                    ModelFileFormatStatics.TYPE_NGRAM
-            );
-
-            // N-gram entries
-            for (var entry :
-                    learner.getPredictions().entrySet()) {
-
-                out.writeInt(
-                        entry.getKey()
-                );
-
-                out.writeShort(
-                        entry.getValue()
-                );
-            }
-        }
     }
 
     public static FinalNGramModel load(
@@ -78,43 +21,38 @@ public final class FinalNGramBuilder {
             NGramPackStrategy strategy
     ) throws IOException {
 
-        long fileSize =
-                Files.size(file);
+        long fileSize = Files.size(file);
 
         if (fileSize < HEADER_SIZE) {
             throw new IOException(
-                    "N-gram file is too small: "
-                            + fileSize
+                    "N-gram file is too small: " + fileSize
             );
         }
 
-        long dataSize =
-                fileSize - HEADER_SIZE;
+        long dataSize = fileSize - HEADER_SIZE;
 
-        if (dataSize % 6 != 0) {
+        if (dataSize % ENTRY_SIZE != 0) {
             throw new IOException(
-                    "Invalid n-gram file size: "
-                            + fileSize
+                    "Invalid n-gram file size: " + fileSize
             );
         }
 
-        int entries =
-                Math.toIntExact(
-                        dataSize / 6
-                );
+        int entries = Math.toIntExact(
+                dataSize / ENTRY_SIZE
+        );
 
-        Map<Integer, Short> predictions =
-                new HashMap<>(
-                        (int) (entries / 0.75f) + 1
-                );
+        int capacity = tableSizeFor(entries);
+
+        int[] keys = new int[capacity];
+        short[] values = new short[capacity];
+        byte[] used = new byte[capacity];
 
         try (DataInputStream in =
                      new DataInputStream(
                              new BufferedInputStream(
                                      Files.newInputStream(file),
-                                     1024 * 1024))) {
-
-            // ----- common model file header -----
+                                     1024 * 1024
+                             ))) {
 
             int magic = in.readInt();
 
@@ -142,19 +80,14 @@ public final class FinalNGramBuilder {
                 );
             }
 
-            // ----- n-gram entries -----
+            for (int i = 0; i < entries; i++) {
+                int key = in.readInt();
+                short value = in.readShort();
 
-            for (int i = 0;
-                 i < entries;
-                 i++) {
-
-                int key =
-                        in.readInt();
-
-                short value =
-                        in.readShort();
-
-                predictions.put(
+                put(
+                        keys,
+                        values,
+                        used,
                         key,
                         value
                 );
@@ -162,8 +95,115 @@ public final class FinalNGramBuilder {
         }
 
         return new FinalNGramModel(
-                predictions,
+                keys,
+                values,
+                used,
                 strategy
         );
+    }
+
+    public static void save(
+            Path file,
+            FinalNGramModel model
+    ) throws IOException {
+
+        Path parent = file.getParent();
+
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+
+        try (DataOutputStream out =
+                     new DataOutputStream(
+                             new BufferedOutputStream(
+                                     Files.newOutputStream(file),
+                                     1024 * 1024
+                             ))) {
+
+            out.writeInt(
+                    ModelFileFormatStatics.MAGIC
+            );
+
+            out.writeInt(
+                    ModelFileFormatStatics.TYPE_NGRAM
+            );
+
+            int[] keys = model.getKeys();
+            short[] values = model.getValues();
+            byte[] used = model.getUsed();
+
+            for (int i = 0; i < keys.length; i++) {
+
+                if (used[i] == 0) {
+                    continue;
+                }
+
+                out.writeInt(keys[i]);
+                out.writeShort(values[i]);
+            }
+        }
+    }
+
+    private static void put(
+            int[] keys,
+            short[] values,
+            byte[] used,
+            int key,
+            short value
+    ) {
+        int mask = keys.length - 1;
+        int index = mix(key) & mask;
+
+        while (used[index] != 0) {
+            if (keys[index] == key) {
+                values[index] = value;
+                return;
+            }
+
+            index = (index + 1) & mask;
+        }
+
+        keys[index] = key;
+        values[index] = value;
+        used[index] = 1;
+    }
+
+    private static int mix(int value) {
+        value ^= value >>> 16;
+        value *= 0x7feb352d;
+        value ^= value >>> 15;
+        value *= 0x846ca68b;
+        value ^= value >>> 16;
+        return value;
+    }
+
+    private static int tableSizeFor(int entries)
+            throws IOException {
+
+        if (entries < 1) {
+            return 2;
+        }
+
+        /*
+         * Keep load factor <= 75%.
+         */
+        long required =
+                ((long) entries * 4L + 2L) / 3L;
+
+        if (required > (1L << 30)) {
+            throw new IOException(
+                    "N-gram model is too large: "
+                            + entries
+                            + " entries"
+            );
+        }
+
+        int capacity = 1;
+
+        while (capacity < required) {
+            capacity <<= 1;
+        }
+
+        return capacity;
     }
 }
