@@ -3,7 +3,10 @@ package com.veldin;
 import com.veldin.downloader.Wiki;
 import com.veldin.downloader.WikiDumpDownloader;
 import com.veldin.downloader.WikiDumpRecord;
+import com.veldin.exampleusage.DictionaryExamples;
+import com.veldin.exampleusage.PredictionExamples;
 import com.veldin.extractor.WikiDumpExtractor;
+import com.veldin.finalmodels.FinalLanguageModels;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -102,6 +105,40 @@ public class Main {
             }
         }
 
+        // Run some of the exampleImplementations
+        for (Release release : releases) {
+
+            System.out.println();
+            System.out.println("=== Examples: " + release.getName() + " ===");
+
+            FinalLanguageModels models = release.models;
+
+            // PredictionExamples
+            String inputPrediction = "i am the first one that ";
+            List<String> predictions = PredictionExamples.predictBranches(
+                    models,
+                    inputPrediction,
+                    5,
+                    10
+            );
+
+            for (String prediction : predictions) {
+                System.out.println("Prediction: [" + inputPrediction + "][" + prediction + "]");
+            }
+
+            // DictionaryExamples
+            List<DictionaryExamples.WordResult> wordInfo = DictionaryExamples.findUnknownWords(
+                    models,
+                    "I would like to walkX my dog!",
+                    5
+            );
+
+            for (DictionaryExamples.WordResult result : wordInfo) {
+                System.out.println("Word: " + result);
+            }
+        }
+
+
         // Prepare release archiving operations
         List<Throwing<Path>> createReleaseOperations = new ArrayList<>();
 
@@ -118,6 +155,42 @@ public class Main {
                 System.out.println("Created release archive: " + result.unwrap());
             } else {
                 System.err.println("Failed to create release: " + result.unwrapError());
+            }
+        }
+
+        // Prepare release publishing operations
+        assert (releases.size() == releaseResults.size());
+
+        List<Throwing<Void>> publishReleaseOperations = new ArrayList<>();
+
+        for (int i = 0; i < releases.size(); i++) {
+
+            Release release = releases.get(i);
+            ResultEx<Path> result = releaseResults.get(i);
+
+            if (result.isOk()) {
+                Path archive = result.unwrap();
+
+                publishReleaseOperations.add(() -> {
+                    ReleasePublisher.publish(release, archive);
+
+                    return null;
+                });
+            }
+        }
+
+        // Publish releases
+        List<ResultEx<Void>> publishResults = ResultTry.doTryMultiple(publishReleaseOperations);
+
+        // Log publishing results
+        for (int i = 0; i < publishResults.size(); i++) {
+
+            ResultEx<Void> result = publishResults.get(i);
+
+            if (result.isOk()) {
+                System.out.println("Published release: " + releases.get(i).getName());
+            } else {
+                System.err.println("Failed to publish release " + releases.get(i).getName() + ": " + result.unwrapError());
             }
         }
     }

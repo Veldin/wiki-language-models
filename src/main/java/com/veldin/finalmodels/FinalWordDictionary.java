@@ -250,6 +250,30 @@ public final class FinalWordDictionary {
         return sb.toString();
     }
 
+    /**
+     * Converts a String into a TokenSequence.
+     */
+    public static TokenSequence stringToTokenSequence(String str) {
+        Objects.requireNonNull(str, "str");
+
+        byte[] tokens = new byte[
+                str.codePointCount(0, str.length())
+                ];
+
+        int index = 0;
+
+        for (int offset = 0; offset < str.length(); ) {
+            int codePoint = str.codePointAt(offset);
+
+            tokens[index++] = (byte)
+                    SixBitWordToken.instance.toToken(codePoint);
+
+            offset += Character.charCount(codePoint);
+        }
+
+        return new TokenSequence(tokens, tokens.length);
+    }
+
     private int compareWordToStored(
             TokenSequence word,
             int storedIndex

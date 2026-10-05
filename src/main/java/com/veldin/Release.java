@@ -1,6 +1,7 @@
 package com.veldin;
 
 import com.veldin.downloader.WikiDumpRecord;
+import com.veldin.finalmodels.FinalLanguageModels;
 
 import java.util.Locale;
 

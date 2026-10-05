@@ -179,7 +179,7 @@ public final class ReleaseArchiver {
             }
         }
 
-        return archive;
+        return releaseDirectory;
     }
 
     private static String yamlValue(String value) {

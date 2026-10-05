@@ -1,9 +1,9 @@
-package com.veldin;
+package com.veldin.finalmodels;
 
-import com.veldin.finalmodels.FinalNGramModel;
-import com.veldin.finalmodels.FinalVocabulary;
-import com.veldin.finalmodels.FinalWordDictionary;
+import com.veldin.VocabularyTokenizer;
 import com.veldin.tokens.SixBitWordToken;
+
+import java.util.List;
 
 public final class FinalLanguageModels {
 

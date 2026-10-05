@@ -5,6 +5,7 @@ import com.veldin.builders.FinalVocabularyBuilder;
 import com.veldin.builders.FinalWordDictionaryBuilder;
 import com.veldin.consumers.RollingTokenBuffer;
 import com.veldin.downloader.WikiDumpRecord;
+import com.veldin.finalmodels.FinalLanguageModels;
 import com.veldin.finalmodels.FinalNGramModel;
 import com.veldin.finalmodels.FinalVocabulary;
 import com.veldin.finalmodels.FinalWordDictionary;
